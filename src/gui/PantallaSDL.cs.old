@@ -1,0 +1,70 @@
+// created on 16/10/2006 at 0:05
+namespace csgbe.gui{
+
+	using System;
+	using System.Drawing;
+	using System.Runtime.InteropServices;
+	using Tao.Sdl;
+
+	public class PantallaSDL{
+		public const int NEGRO = 3;
+		public const int GRIS_OSCURO = 2;
+		public const int GRIS_CLARO = 1;
+		public const int BLANCO = 0;
+	
+		private int _alto;
+		private int _ancho;
+		private int _zoom;
+		
+		private IntPtr sdlBuffer;
+		private IntPtr surfacePtr;
+		
+		public int ancho { get { return _ancho / _zoom; } }
+		public int alto { get { return _alto / _zoom; } }		
+	
+		public void actualizarPantalla(){
+//			Marshal.Copy(myPPU.offscreenBuffer, 256*8, sdlBuffer, _ancho * _alto);
+			Sdl.SDL_Flip(surfacePtr);
+		}
+	
+		public PantallaSDL(int height, int width, int zoom){
+			_alto = height * zoom;
+			_ancho = width * zoom;
+			_zoom = zoom;
+			StartVideo();
+		}
+	
+		public void dibujarPixel(int posx, int posy, int id_color){
+			if (((posx * _zoom) < _ancho) && ((posy * _zoom) < _alto)){
+				for (int i = 0; i < _zoom; i++){
+					for (int j = 0; j < _zoom; j++){
+						byte color = 0;
+						switch(id_color){
+							case BLANCO: color = 255; break;
+							case GRIS_CLARO: color = 170; break;
+							case GRIS_OSCURO: color = 85; break;
+							case NEGRO: color = 0; break;
+						}					
+						Marshal.WriteByte(sdlBuffer, ((posx * _zoom) + i) + (_ancho * ((posy * _zoom) + j)), color);
+						//_displayBuffer.SetPixel((posx * _zoom) + i, (posy * _zoom) + j, color);
+					}
+				}
+			}
+		}	
+	
+		public void dibujarLineaH(int linea){ for (int i = 0; i < ancho; i++) dibujarPixel(i, linea, NEGRO); }
+		public void dibujarLineaV(int linea){ for (int i = 0; i < alto; i++) dibujarPixel(linea, i, NEGRO); }
+	
+		public void StartVideo(){
+			Sdl.SDL_Init(Sdl.SDL_INIT_VIDEO);
+			surfacePtr = Sdl.SDL_SetVideoMode(_ancho, _alto, 8, Sdl.SDL_HWSURFACE|Sdl.SDL_DOUBLEBUF);
+			
+			Sdl.SDL_Surface surface = (Sdl.SDL_Surface)Marshal.PtrToStructure(surfacePtr, typeof(Sdl.SDL_Surface));
+			sdlBuffer = surface.pixels;
+			Sdl.SDL_WM_SetCaption("GB Display", null);
+		}
+	
+		public void CloseVideo(){ Sdl.SDL_Quit(); }
+		~PantallaSDL(){ Sdl.SDL_FreeSurface(surfacePtr); }
+	}
+}

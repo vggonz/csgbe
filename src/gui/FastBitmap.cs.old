@@ -1,0 +1,89 @@
+using System;
+using System.Drawing;
+using System.Drawing.Imaging;
+
+class FastBitmap : IDisposable, ICloneable{
+	
+	internal Bitmap _bitmap;
+	private BitmapData _bitmapData;
+
+	public FastBitmap(Int32 width, Int32 height, PixelFormat fmt){
+		_bitmap = new Bitmap(width, height, fmt);
+	}
+
+	~FastBitmap(){
+		Dispose(false);
+	}
+
+	public void Dispose(){
+		GC.SuppressFinalize(this);
+		Dispose(true);
+	}
+
+	protected virtual void Dispose(Boolean disposing){
+		Unlock();
+		if (disposing) _bitmap.Dispose();
+	}
+
+	private FastBitmap(){}
+
+	public Object Clone(){
+		FastBitmap clone = new FastBitmap();
+		clone._bitmap = (Bitmap)_bitmap.Clone();
+		return clone;
+	}
+
+	public Int32 Width{ get { return _bitmap.Width; } }
+	public Int32 Height{ get { return _bitmap.Height; } }
+	public Bitmap bmp{ get { return _bitmap; } }
+
+	public void Lock(){
+		_bitmapData = _bitmap.LockBits(
+			new Rectangle(0, 0, _bitmap.Width, _bitmap.Height),
+			ImageLockMode.ReadWrite,
+			_bitmap.PixelFormat
+			);
+	}
+	
+	unsafe public Color GetPixel(Int32 x, Int32 y){
+		if (_bitmapData.PixelFormat == PixelFormat.Format32bppArgb) {
+			Byte* b = (Byte*)_bitmapData.Scan0 + (y * _bitmapData.Stride) + (x * 4);
+			return Color.FromArgb(*(b + 3), *(b + 2), *(b + 1), *b);
+		}else if (_bitmapData.PixelFormat == PixelFormat.Format24bppRgb) {
+			Byte* b = (Byte*)_bitmapData.Scan0 + (y * _bitmapData.Stride) + (x * 3);
+			return Color.FromArgb(*(b + 2), *(b + 1), *b);
+		}
+		return Color.Empty;
+	}
+	
+	unsafe public void SetPixel(Int32 x, Int32 y, Color c){
+		if (_bitmapData.PixelFormat == PixelFormat.Format32bppArgb) {
+			Byte* b = (Byte*)_bitmapData.Scan0 + (y * _bitmapData.Stride) + (x * 4);
+			*b = c.B;
+			*(b + 1) = c.G;
+			*(b + 2) = c.R;
+			*(b + 3) = c.A;
+		}else if (_bitmapData.PixelFormat == PixelFormat.Format24bppRgb) {
+			Byte* b = (Byte*)_bitmapData.Scan0 + (y * _bitmapData.Stride) + (x * 3);
+			*b = c.B;
+			*(b + 1) = c.G;
+			*(b + 2) = c.R;
+		}
+	}
+	
+	public Byte GetIntensity(Int32 x, Int32 y){
+		Color c = GetPixel(x, y);
+		return (Byte)((c.R * 0.30 + c.G * 0.59 + c.B * 0.11) + 0.5);
+	}
+
+	public void Unlock(){
+		if (_bitmapData != null) {
+			_bitmap.UnlockBits(_bitmapData);
+			_bitmapData = null;
+		}
+	}
+
+	public void Save(String filename, ImageFormat format){ _bitmap.Save(filename, format); }
+	public void Save(String filename){ _bitmap.Save(filename); }
+}
+
